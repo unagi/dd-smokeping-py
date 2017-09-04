@@ -1,0 +1,10 @@
+init_config:
+    basename: ping
+    ping_timeout: 2.0
+    check_interval: 10
+
+instances:
+    - addr: 127.0.0.1
+      isp: myisp
+      name: location_name
+      description: my location description
