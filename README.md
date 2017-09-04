@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/unagi/dd-smokeping-py.svg?branch=master)](https://travis-ci.org/unagi/dd-smokeping-py)
+
 # dd-smokeping-py
 Dadadog multi-target fping like smokeping
 
