@@ -4,6 +4,7 @@
 import subprocess
 import timeit
 from checks import check_status, AgentCheck
+from hashlib import md5
 
 
 class FpingCheck(AgentCheck):
@@ -64,7 +65,8 @@ class FpingCheck(AgentCheck):
                         'timestamp': int(exec_time),
                         'event_type': self._basename,
                         'msg_title': 'fping timeout',
-                        'msg_text': 'ICMP Network Unreachable for ICMP Echo sent to %s' % addr
+                        'msg_text': 'ICMP Network Unreachable for ICMP Echo sent to %s' % addr,
+                        'aggregation_key': md5(addr).hexdigest()
                     })
                     if num == 1:
                         instance_status = check_status.InstanceStatus(
