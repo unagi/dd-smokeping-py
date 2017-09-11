@@ -119,6 +119,9 @@ class Fping(object):
         out, error = ping.communicate()
         # Result of fping is output to stderr
         for line in error.splitlines():
+            if line.find(':') == -1:
+                # skip if line is not contain ":"
+                continue
             try:
                 addr, rtt = line.split(':', 1)
                 result[addr.strip()] = float(rtt)
