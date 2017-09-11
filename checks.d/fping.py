@@ -107,17 +107,23 @@ class Fping(object):
 
     def run(self):
         result = {}
-        ping = subprocess.Popen(
-            ["fping", "-C1", "-q", "-B1", "-r1", "-i10", "-t", str(self._timeout)] + self._hosts,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
+        try:
+            ping = subprocess.Popen(
+                ["fping", "-C1", "-q", "-B1", "-r1", "-i10", "-t", str(self._timeout)] + self._hosts,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+        except OSError:
+            raise StandardError("Command not found: fping")
+
         out, error = ping.communicate()
         # Result of fping is output to stderr
         for line in error.splitlines():
             try:
                 addr, rtt = line.split(':', 1)
                 result[addr.strip()] = float(rtt)
-            except:
+            except ValueError:
                 result[addr.strip()] = None
+        if len(result) == 0:
+            raise StandardError("Invalid addresses : %s" % ",".join(self._hosts))
         return result
