@@ -47,6 +47,7 @@ class FpingCheck(AgentCheck):
         check_start_time = timeit.default_timer()
         elapsed_time = 0
         num = 0
+        failures = {}
         while elapsed_time < self._last_check_time:
             result = fping.run()
             exec_time = timeit.default_timer()
@@ -61,13 +62,7 @@ class FpingCheck(AgentCheck):
                         '%s.loss_cnt' % self._basename,
                         tags=['isp:%s' % instance['isp'], 'locate:%s' % instance['name']]
                     )
-                    self.event({
-                        'timestamp': int(exec_time),
-                        'event_type': self._basename,
-                        'msg_title': 'fping timeout',
-                        'msg_text': 'ICMP Network Unreachable for ICMP Echo sent to %s' % addr,
-                        'aggregation_key': md5(addr).hexdigest()
-                    })
+                    failures[addr] = failures.get(addr, 0) + 1
                     if num == 1:
                         instance_status = check_status.InstanceStatus(
                             hosts.index(addr), check_status.STATUS_WARNING,
@@ -92,6 +87,14 @@ class FpingCheck(AgentCheck):
                 if num == 1:
                     instance_statuses[hosts.index(addr)] = instance_status
 
+        for addr in failures.keys():
+            self.event({
+                'timestamp': int(exec_time),
+                'event_type': self._basename,
+                'msg_title': 'fping timeout',
+                'msg_text': 'ICMP Network Unreachable for ICMP Echo sent to %s %d times' % (addr, failures[addr]),
+                'aggregation_key': md5(addr).hexdigest()
+            })
         elapsed_time = timeit.default_timer() - check_start_time
         self.log.info("elapsed_time:%s[sec] check_times: %d" % (round(elapsed_time, 2), num))
         return instance_statuses
