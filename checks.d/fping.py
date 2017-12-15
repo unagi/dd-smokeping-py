@@ -8,6 +8,15 @@ from hashlib import md5
 
 
 class FpingCheck(AgentCheck):
+    @staticmethod
+    def instance_tags(instance):
+        if 'tags' not in instance.keys():
+            raise Exception("All instances should have a 'tags' parameter")
+        tags = []
+        for key, value in instance['tags'].iteritems():
+            tags.append('%s:%s' % (key, value))
+        return tags
+
     def __init__(self, name, init_config, agentConfig, instances):
         AgentCheck.__init__(self, name, init_config, agentConfig, instances)
 
@@ -18,8 +27,8 @@ class FpingCheck(AgentCheck):
 
         hosts = []
         for instance in instances:
-            if not instance.get('isp', None):
-                raise Exception("All instances should have a 'isp' parameter")
+            if not instance.get('addr', None):
+                raise Exception("All instances should have a 'addr' parameter")
             if instance['addr'] in hosts:
                 raise Exception("Duplicate address :%s" % instance['addr'])
 
@@ -28,7 +37,7 @@ class FpingCheck(AgentCheck):
             self.increment(
                 '%s.total_loss' % self._basename,
                 0,
-                tags=['isp:%s' % instance['isp'], 'locate:%s' % instance['name']]
+                tags=FpingCheck.instance_tags(instance)
             )
 
     def run(self):
@@ -60,7 +69,7 @@ class FpingCheck(AgentCheck):
                 if v is None:
                     self.increment(
                         '%s.loss_cnt' % self._basename,
-                        tags=['isp:%s' % instance['isp'], 'locate:%s' % instance['name']]
+                        tags=FpingCheck.instance_tags(instance)
                     )
                     failures[addr] = failures.get(addr, 0) + 1
                     if num == 1:
@@ -72,7 +81,7 @@ class FpingCheck(AgentCheck):
                     self.histogram(
                         '%s.rtt' % self._basename,
                         v,
-                        tags=['isp:%s' % instance['isp'], 'locate:%s' % instance['name']]
+                        tags=FpingCheck.instance_tags(instance)
                     )
                     if num == 1:
                         instance_status = check_status.InstanceStatus(
@@ -81,7 +90,7 @@ class FpingCheck(AgentCheck):
                         )
                 self.increment(
                     '%s.total_cnt' % self._basename,
-                    tags=['isp:%s' % instance['isp'], 'locate:%s' % instance['name']]
+                    tags=FpingCheck.instance_tags(instance)
                 )
                 self._roll_up_instance_metadata()
                 if num == 1:

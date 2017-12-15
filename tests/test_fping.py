@@ -1,5 +1,5 @@
 import os, unittest
-from fping import Fping
+from fping import Fping,FpingCheck
 
 
 class TestFping(unittest.TestCase):
@@ -24,3 +24,20 @@ class TestFping(unittest.TestCase):
         with self.assertRaises(StandardError) as err:
             result = fping.run()
         self.assertEquals(err.exception.message, 'Invalid addresses : invalid_address_format.0')
+
+
+class TestFpingCheck(unittest.TestCase):
+    def test_instance_tags(self):
+        self.assertEquals(
+                sorted(FpingCheck.instance_tags({'tags': {'key1': 'value1', 'key2': 2}})),
+                ['key1:value1', 'key2:2']
+        )
+
+        with self.assertRaises(Exception) as err:
+            FpingCheck.instance_tags({})
+        self.assertEquals(err.exception.message, 'All instances should have a \'tags\' parameter')
+
+        self.assertEquals(
+                sorted(FpingCheck.instance_tags({'tags': {}})),
+                []
+        )

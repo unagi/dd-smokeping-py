@@ -5,6 +5,5 @@ init_config:
 
 instances:
     - addr: 127.0.0.1
-      isp: myisp
-      name: location_name
-      description: my location description
+      tags:
+        free_tag1: you can use your custom tags
