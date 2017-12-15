@@ -24,6 +24,7 @@ class FpingCheck(AgentCheck):
         self._basename = self.init_config.get('basename', 'ping')
         self._ping_timeout = float(self.init_config.get('ping_timeout', 2.0))
         self._last_check_time = int(self.init_config.get('check_interval', 10)) - self._ping_timeout
+        self._tags = FpingCheck.instance_tags(self.init_config)
 
         hosts = []
         for instance in instances:
@@ -37,8 +38,11 @@ class FpingCheck(AgentCheck):
             self.increment(
                 '%s.total_loss' % self._basename,
                 0,
-                tags=FpingCheck.instance_tags(instance)
+                tags=self._instance_tags(instance)
             )
+
+    def _instance_tags(self, instance):
+        return FpingCheck.instance_tags(instance) + self._tags
 
     def run(self):
         """ Run all instances. """
@@ -69,7 +73,7 @@ class FpingCheck(AgentCheck):
                 if v is None:
                     self.increment(
                         '%s.loss_cnt' % self._basename,
-                        tags=FpingCheck.instance_tags(instance)
+                        tags=self._instance_tags(instance)
                     )
                     failures[addr] = failures.get(addr, 0) + 1
                     if num == 1:
@@ -81,7 +85,7 @@ class FpingCheck(AgentCheck):
                     self.histogram(
                         '%s.rtt' % self._basename,
                         v,
-                        tags=FpingCheck.instance_tags(instance)
+                        tags=self._instance_tags(instance)
                     )
                     if num == 1:
                         instance_status = check_status.InstanceStatus(
@@ -90,7 +94,7 @@ class FpingCheck(AgentCheck):
                         )
                 self.increment(
                     '%s.total_cnt' % self._basename,
-                    tags=FpingCheck.instance_tags(instance)
+                    tags=self._instance_tags(instance)
                 )
                 self._roll_up_instance_metadata()
                 if num == 1:
