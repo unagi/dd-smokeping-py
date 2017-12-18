@@ -3,4 +3,5 @@ def check_status():
 
 
 class AgentCheck:
-    pass
+    def __init__(self, name, init_config, agentConfig, instances):
+        self.init_config = init_config

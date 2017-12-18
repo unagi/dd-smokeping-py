@@ -28,16 +28,21 @@ class TestFping(unittest.TestCase):
 
 class TestFpingCheck(unittest.TestCase):
     def test_instance_tags(self):
+        check = FpingCheck('dummy', {'tags': {'key1': 'global', 'key2': 'conflict_global'}}, {}, [])
         self.assertEquals(
-                sorted(FpingCheck.instance_tags({'tags': {'key1': 'value1', 'key2': 2}})),
-                ['key1:value1', 'key2:2']
+                sorted(check._instance_tags({'addr': '127.0.0.1', 'tags': {'key2': 'conflict_instance', 'key3': 2}})),
+                ['dst_addr:127.0.0.1', 'key1:global', 'key2:conflict_instance', 'key3:2']
         )
 
         with self.assertRaises(Exception) as err:
-            FpingCheck.instance_tags({})
+            check._instance_tags({})
         self.assertEquals(err.exception.message, 'All instances should have a \'tags\' parameter')
 
+        with self.assertRaises(KeyError) as err:
+            check._instance_tags({'tags': {}})
+        self.assertEquals(err.exception.message, 'addr')
+
         self.assertEquals(
-                sorted(FpingCheck.instance_tags({'tags': {}})),
-                []
+                sorted(check._instance_tags({'addr': '127.0.0.1', 'tags': {}})),
+                ['dst_addr:127.0.0.1', 'key1:global', 'key2:conflict_global']
         )

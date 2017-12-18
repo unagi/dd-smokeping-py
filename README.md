@@ -19,3 +19,7 @@ Dadadog multi-target fping like smokeping
 - ping.rtt(histograms) : ping rtt from datadog agent to targets(fping.yaml)
 - ping.total_cnt : total count of ping
 - ping.loss_cnt : packet loss count of ping
+
+## Tags Description
+- dst_addr : ping destination address
+- your_tags : you can set tags in fping.yml(global, per instance)

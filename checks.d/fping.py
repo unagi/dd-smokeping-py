@@ -8,15 +8,6 @@ from hashlib import md5
 
 
 class FpingCheck(AgentCheck):
-    @staticmethod
-    def instance_tags(instance):
-        if 'tags' not in instance.keys():
-            raise Exception("All instances should have a 'tags' parameter")
-        tags = []
-        for key, value in instance['tags'].iteritems():
-            tags.append('%s:%s' % (key, value))
-        return tags
-
     def __init__(self, name, init_config, agentConfig, instances):
         AgentCheck.__init__(self, name, init_config, agentConfig, instances)
 
@@ -24,7 +15,7 @@ class FpingCheck(AgentCheck):
         self._basename = self.init_config.get('basename', 'ping')
         self._ping_timeout = float(self.init_config.get('ping_timeout', 2.0))
         self._last_check_time = int(self.init_config.get('check_interval', 10)) - self._ping_timeout
-        self._tags = FpingCheck.instance_tags(self.init_config)
+        self._global_tags = self.init_config.get('tags', {}).copy()
 
         hosts = []
         for instance in instances:
@@ -42,7 +33,15 @@ class FpingCheck(AgentCheck):
             )
 
     def _instance_tags(self, instance):
-        return FpingCheck.instance_tags(instance) + self._tags
+        if 'tags' not in instance.keys():
+            raise Exception("All instances should have a 'tags' parameter")
+        dd_tags = []
+        tags = self._global_tags.copy()
+        tags.update(instance['tags'])
+        tags['dst_addr'] = instance['addr']
+        for key, value in tags.iteritems():
+            dd_tags.append('%s:%s' % (key, value))
+        return dd_tags
 
     def run(self):
         """ Run all instances. """
