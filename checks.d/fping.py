@@ -26,11 +26,7 @@ class FpingCheck(AgentCheck):
 
             hosts.append(instance['addr'])
             # for initialize loss cnt
-            self.increment(
-                '%s.total_loss' % self._basename,
-                0,
-                tags=self._instance_tags(instance)
-            )
+            self._increment_with_tags('loss_cnt', instance, 0)
 
     def _instance_tags(self, instance):
         if 'tags' not in instance.keys():
@@ -42,6 +38,13 @@ class FpingCheck(AgentCheck):
         for key, value in tags.iteritems():
             dd_tags.append('%s:%s' % (key, value))
         return dd_tags
+
+    def _increment_with_tags(self, name, instance, value=1):
+        self.increment(
+            '%s.%s' % (self._basename, name),
+            value,
+            tags=self._instance_tags(instance)
+        )
 
     def run(self):
         """ Run all instances. """
@@ -70,10 +73,7 @@ class FpingCheck(AgentCheck):
             for addr, v in result.items():
                 instance = inst[addr]
                 if v is None:
-                    self.increment(
-                        '%s.loss_cnt' % self._basename,
-                        tags=self._instance_tags(instance)
-                    )
+                    self._increment_with_tags('loss_cnt', instance)
                     failures[addr] = failures.get(addr, 0) + 1
                     if num == 1:
                         instance_status = check_status.InstanceStatus(
@@ -91,10 +91,7 @@ class FpingCheck(AgentCheck):
                             hosts.index(addr), check_status.STATUS_OK,
                             instance_check_stats=instance_check_stats
                         )
-                self.increment(
-                    '%s.total_cnt' % self._basename,
-                    tags=self._instance_tags(instance)
-                )
+                self._increment_with_tags('total_cnt', instance)
                 self._roll_up_instance_metadata()
                 if num == 1:
                     instance_statuses[hosts.index(addr)] = instance_status
