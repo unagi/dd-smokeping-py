@@ -21,7 +21,7 @@ def main():
         author_email='ray@ymgch.org',
         packages=find_packages(),
         test_require=_test_requirements(),
-        test_suite = 'nose.collector',
+        test_suite='nose.collector',
         zip_safe=False,
         include_package_data=True,
     )

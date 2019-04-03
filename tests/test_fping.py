@@ -1,6 +1,6 @@
 import os
 import unittest
-from fping import Fping,FpingCheck
+from fping import Fping, FpingCheck
 
 
 class TestFping(unittest.TestCase):
@@ -17,14 +17,14 @@ class TestFping(unittest.TestCase):
         os.environ["PATH"] = ""
         fping = Fping(['8.8.8.8'], 2)
         with self.assertRaises(Exception) as err:
-            result = fping.run()
+            fping.run()
         self.assertEquals(err.exception.args[0], 'Command not found: fping')
         os.environ["PATH"] = env["PATH"]
 
     def test_run_invalid_address(self):
         fping = Fping(['invalid_address_format.0'], 2)
         with self.assertRaises(Exception) as err:
-            result = fping.run()
+            fping.run()
         self.assertEquals(err.exception.args[0], 'Invalid addresses : invalid_address_format.0')
 
 
