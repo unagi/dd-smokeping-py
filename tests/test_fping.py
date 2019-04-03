@@ -53,3 +53,14 @@ class TestFpingCheck(unittest.TestCase):
         with self.assertRaises(KeyError) as err:
             check._instance_tags({'tags': {}})
         self.assertEquals(err.exception.args[0], 'addr')
+
+    def test_run(self):
+        check = FpingCheck('dummy', {'tags': {'key1': 'global', 'key2': 'conflict_global'}}, {},
+                           [{'addr': '127.0.0.1', 'tags': {}}])
+        check.run()
+
+    def test_run_with_duplicate_data(self):
+        with self.assertRaises(Exception) as err:
+            FpingCheck('dummy', {'tags': {'key1': 'global', 'key2': 'conflict_global'}}, {},
+                       [{'addr': '127.0.0.1', 'tags': {}}, {'addr': '127.0.0.1', 'tags': {}}])
+        self.assertEquals(err.exception.args[0], 'Duplicate address :127.0.0.1')
