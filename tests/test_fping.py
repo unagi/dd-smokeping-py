@@ -63,4 +63,4 @@ class TestFpingCheck(unittest.TestCase):
         with self.assertRaises(Exception) as err:
             FpingCheck('dummy', {'tags': {'key1': 'global', 'key2': 'conflict_global'}}, {},
                        [{'addr': '127.0.0.1', 'tags': {}}, {'addr': '127.0.0.1', 'tags': {}}])
-        self.assertEquals(err.exception.args[0], 'Duplicate address :127.0.0.1')
+            self.assertEquals(err.exception.args[0], 'Duplicate address found: 127.0.0.1')
