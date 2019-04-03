@@ -2,7 +2,8 @@ sudo: false
 language: python
 python:
   - "2.7"
-  - "3.7"
+  - "3.6"
+  # - "3.7" Re-enable after https://github.com/travis-ci/travis-ci/issues/9815 is fixed
 before_install:
   - "sudo apt-get install -y fping"
 install: pip install tox-travis
