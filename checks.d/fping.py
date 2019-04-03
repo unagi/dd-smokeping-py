@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import subprocess
-import timeit
+import time
 from hashlib import md5
 from checks import AgentCheck
 
@@ -16,6 +16,7 @@ class FpingCheck(AgentCheck):
         self._ping_timeout = float(self.init_config.get('ping_timeout', 2.0))
         self._last_check_time = int(self.init_config.get('check_interval', 10)) - self._ping_timeout
         self._global_tags = self.init_config.get('tags', {}).copy()
+        self._use_failure_log = self.init_config.get('use_failure_log', False)
 
         try:
             addr_list = [i['addr'] for i in instances]
@@ -23,6 +24,7 @@ class FpingCheck(AgentCheck):
             raise Exception("All instances should have a 'addr' parameter")
         if len(sorted(set(addr_list))) != len(instances):
             raise Exception("Duplicate address found: {}".format(",".join(sorted(set(addr_list), key=addr_list.index))))
+        self._addr_list = addr_list
 
         for instance in instances:
             # for initialize loss cnt
@@ -46,34 +48,30 @@ class FpingCheck(AgentCheck):
             tags=self._instance_tags(instance)
         )
 
+    def get_instance_by_addr(self, addr):
+        return self.instances[self._addr_list.index(addr)]
+
     def run(self):
         """ Run all instances. """
-
-        inst = {}
-        hosts = []
-        for i, instance in enumerate(self.instances):
-            inst[instance['addr']] = instance
-            hosts.append(instance['addr'])
-
-        fping = Fping(hosts, self._ping_timeout)
-
         # record elapsed time for fping
-        check_start_time = timeit.default_timer()
-        elapsed_time = 0
+        check_start_time = time.time()
+
+        fping = Fping(self._addr_list, self._ping_timeout)
+
         num = 0
         failures = {}
-        while elapsed_time < self._last_check_time:
+        while time.time() - check_start_time < self._last_check_time:
             result = fping.run()
-            exec_time = timeit.default_timer()
-            elapsed_time = exec_time - check_start_time
             num += 1
 
             for addr, v in result.items():
-                instance = inst[addr]
+                instance = self.get_instance_by_addr(addr)
                 if v is None:
+                    # PacketLoss
                     self._increment_with_tags('loss_cnt', instance)
                     failures[addr] = failures.get(addr, 0) + 1
                 else:
+                    # Ping Success
                     self.histogram(
                         '{}.rtt'.format(self._basename),
                         v,
@@ -82,16 +80,18 @@ class FpingCheck(AgentCheck):
                 self._increment_with_tags('total_cnt', instance)
                 self._roll_up_instance_metadata()
 
-        for addr in failures.keys():
-            self.event({
-                'timestamp': int(exec_time),
-                'event_type': self._basename,
-                'msg_title': 'fping timeout',
-                'msg_text': 'ICMP Network Unreachable for ICMP Echo sent to {} {} times'.format(addr, failures[addr]),
-                'aggregation_key': md5(addr).hexdigest()
-            })
-        elapsed_time = timeit.default_timer() - check_start_time
-        self.log.info("elapsed_time:{}[sec] check_times: {}".format(round(elapsed_time, 2), num))
+        exec_time = time.time()
+        if self._use_failure_log:
+            for addr in failures.keys():
+                self.event({
+                    'timestamp': int(exec_time),
+                    'event_type': self._basename,
+                    'msg_title': 'fping timeout',
+                    'msg_text': 'ICMP Network Unreachable for ICMP Echo sent to {} {} times'.format(addr,
+                                                                                                    failures[addr]),
+                    'aggregation_key': md5(addr).hexdigest()
+                })
+        self.log.info("elapsed_time:{}[sec] check_times: {}".format(round(time.time() - check_start_time, 2), num))
 
 
 class Fping(object):
