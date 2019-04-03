@@ -133,7 +133,6 @@ class Fping(object):
                 # skip if line is not contain ":"
                 continue
             try:
-                print(line.split(':', 1))
                 addr, rtt = line.split(':', 1)
                 result[addr.strip()] = float(rtt)
             except ValueError:
