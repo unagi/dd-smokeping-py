@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import subprocess
-import timeit
-from checks import check_status, AgentCheck
+import time
 from hashlib import md5
+from checks import AgentCheck
 
 
 class FpingCheck(AgentCheck):
@@ -16,15 +16,17 @@ class FpingCheck(AgentCheck):
         self._ping_timeout = float(self.init_config.get('ping_timeout', 2.0))
         self._last_check_time = int(self.init_config.get('check_interval', 10)) - self._ping_timeout
         self._global_tags = self.init_config.get('tags', {}).copy()
+        self._use_failure_log = self.init_config.get('use_failure_log', False)
 
-        hosts = []
+        try:
+            addr_list = [i['addr'] for i in instances]
+        except KeyError:
+            raise Exception("All instances should have a 'addr' parameter")
+        if len(sorted(set(addr_list))) != len(instances):
+            raise Exception("Duplicate address found: {}".format(",".join(sorted(set(addr_list), key=addr_list.index))))
+        self._addr_list = addr_list
+
         for instance in instances:
-            if not instance.get('addr', None):
-                raise Exception("All instances should have a 'addr' parameter")
-            if instance['addr'] in hosts:
-                raise Exception("Duplicate address :%s" % instance['addr'])
-
-            hosts.append(instance['addr'])
             # for initialize loss cnt
             self._increment_with_tags('loss_cnt', instance, 0)
 
@@ -36,77 +38,60 @@ class FpingCheck(AgentCheck):
         tags.update(instance['tags'])
         tags['dst_addr'] = instance['addr']
         for key, value in tags.items():
-            dd_tags.append('%s:%s' % (key, value))
+            dd_tags.append('{}:{}'.format(key, value))
         return dd_tags
 
     def _increment_with_tags(self, name, instance, value=1):
         self.increment(
-            '%s.%s' % (self._basename, name),
+            '{}.{}'.format(self._basename, name),
             value,
             tags=self._instance_tags(instance)
         )
 
+    def get_instance_by_addr(self, addr):
+        return self.instances[self._addr_list.index(addr)]
+
     def run(self):
         """ Run all instances. """
-
-        inst = {}
-        hosts = []
-        for i, instance in enumerate(self.instances):
-            inst[instance['addr']] = instance
-            hosts.append(instance['addr'])
-        instance_statuses = [None]*len(hosts)
-
-        fping = Fping(hosts, self._ping_timeout)
-
         # record elapsed time for fping
-        check_start_time = timeit.default_timer()
-        elapsed_time = 0
+        check_start_time = time.time()
+
+        fping = Fping(self._addr_list, self._ping_timeout)
+
         num = 0
         failures = {}
-        while elapsed_time < self._last_check_time:
+        while time.time() - check_start_time < self._last_check_time:
             result = fping.run()
-            exec_time = timeit.default_timer()
-            elapsed_time = exec_time - check_start_time
             num += 1
 
-            instance_check_stats = {'run_time': timeit.default_timer() - check_start_time}
             for addr, v in result.items():
-                instance = inst[addr]
+                instance = self.get_instance_by_addr(addr)
                 if v is None:
+                    # PacketLoss
                     self._increment_with_tags('loss_cnt', instance)
                     failures[addr] = failures.get(addr, 0) + 1
-                    if num == 1:
-                        instance_status = check_status.InstanceStatus(
-                            hosts.index(addr), check_status.STATUS_WARNING,
-                            warnings=self.get_warnings(), instance_check_stats=instance_check_stats
-                        )
                 else:
+                    # Ping Success
                     self.histogram(
-                        '%s.rtt' % self._basename,
+                        '{}.rtt'.format(self._basename),
                         v,
                         tags=self._instance_tags(instance)
                     )
-                    if num == 1:
-                        instance_status = check_status.InstanceStatus(
-                            hosts.index(addr), check_status.STATUS_OK,
-                            instance_check_stats=instance_check_stats
-                        )
                 self._increment_with_tags('total_cnt', instance)
                 self._roll_up_instance_metadata()
-                if num == 1:
-                    instance_statuses[hosts.index(addr)] = instance_status
 
-        for addr in failures.keys():
-            self.event({
-                'timestamp': int(exec_time),
-                'event_type': self._basename,
-                'msg_title': 'fping timeout',
-                'msg_text': 'ICMP Network Unreachable for ICMP Echo sent to %s %d times' % (addr, failures[addr]),
-                'aggregation_key': md5(addr).hexdigest()
-            })
-        elapsed_time = timeit.default_timer() - check_start_time
-        self.log.info("elapsed_time:%s[sec] check_times: %d" % (round(elapsed_time, 2), num))
-        return instance_statuses
+        exec_time = time.time()
+        if self._use_failure_log:
+            for addr in failures.keys():
+                self.event({
+                    'timestamp': int(exec_time),
+                    'event_type': self._basename,
+                    'msg_title': 'fping timeout',
+                    'msg_text': 'ICMP Network Unreachable for ICMP Echo sent to {} {} times'.format(addr,
+                                                                                                    failures[addr]),
+                    'aggregation_key': md5(addr).hexdigest()
+                })
+        self.log.info("elapsed_time:{}[sec] check_times: {}".format(round(time.time() - check_start_time, 2), num))
 
 
 class Fping(object):
@@ -138,5 +123,5 @@ class Fping(object):
             except ValueError:
                 result[addr.strip()] = None
         if len(result) == 0:
-            raise Exception("Invalid addresses : %s" % ",".join(self._hosts))
+            raise Exception("Invalid addresses : {}".format(",".join(self._hosts)))
         return result
