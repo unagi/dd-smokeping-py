@@ -35,7 +35,7 @@ class FpingCheck(AgentCheck):
         tags = self._global_tags.copy()
         tags.update(instance['tags'])
         tags['dst_addr'] = instance['addr']
-        for key, value in tags.iteritems():
+        for key, value in tags.items():
             dd_tags.append('%s:%s' % (key, value))
         return dd_tags
 
@@ -123,19 +123,21 @@ class Fping(object):
                 stderr=subprocess.PIPE
             )
         except OSError:
-            raise StandardError("Command not found: fping")
+            raise Exception("Command not found: fping")
 
         out, error = ping.communicate()
         # Result of fping is output to stderr
         for line in error.splitlines():
+            line = line.decode('utf-8')
             if line.find(':') == -1:
                 # skip if line is not contain ":"
                 continue
             try:
+                print(line.split(':', 1))
                 addr, rtt = line.split(':', 1)
                 result[addr.strip()] = float(rtt)
             except ValueError:
                 result[addr.strip()] = None
         if len(result) == 0:
-            raise StandardError("Invalid addresses : %s" % ",".join(self._hosts))
+            raise Exception("Invalid addresses : %s" % ",".join(self._hosts))
         return result
