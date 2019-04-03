@@ -3,6 +3,7 @@
 
 import subprocess
 import time
+import copy
 from hashlib import md5
 from checks import AgentCheck
 
@@ -15,7 +16,7 @@ class FpingCheck(AgentCheck):
         self._basename = self.init_config.get('basename', 'ping')
         self._ping_timeout = float(self.init_config.get('ping_timeout', 2.0))
         self._last_check_time = int(self.init_config.get('check_interval', 10)) - self._ping_timeout
-        self._global_tags = self.init_config.get('tags', {}).copy()
+        self._global_tags = copy.deepcopy(self.init_config.get('tags', []))
         self._use_failure_log = self.init_config.get('use_failure_log', False)
 
         try:
@@ -34,8 +35,15 @@ class FpingCheck(AgentCheck):
         if 'tags' not in instance.keys():
             raise Exception("All instances should have a 'tags' parameter")
         dd_tags = []
-        tags = self._global_tags.copy()
-        tags.update(instance['tags'])
+        tags = {}
+        itags = {}
+        for tag in self._global_tags:
+            k, v = tag.split(":", 1)
+            tags[k] = v
+        for itag in instance['tags']:
+            k, v = itag.split(":", 1)
+            itags[k] = v
+        tags.update(itags)
         tags['dst_addr'] = instance['addr']
         for key, value in tags.items():
             dd_tags.append('{}:{}'.format(key, value))
