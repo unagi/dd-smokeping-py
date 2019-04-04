@@ -20,9 +20,9 @@ class FpingCheck(AgentCheck):
         self._use_failure_log = self.init_config.get('use_failure_log', False)
 
         try:
-            addr_list = [i['addr'] for i in instances]
+            addr_list = list({i['addr']: i['tags'] for i in instances}.keys())
         except KeyError:
-            raise Exception("All instances should have a 'addr' parameter")
+            raise Exception("All instances should have a 'addr' and 'tags' parameter")
         if len(sorted(set(addr_list))) != len(instances):
             raise Exception("Duplicate address found: {}".format(",".join(sorted(set(addr_list), key=addr_list.index))))
         self._addr_list = addr_list
@@ -31,29 +31,11 @@ class FpingCheck(AgentCheck):
             # for initialize loss cnt
             self._increment_with_tags('loss_cnt', instance, 0)
 
-    def _instance_tags(self, instance):
-        if 'tags' not in instance.keys():
-            raise Exception("All instances should have a 'tags' parameter")
-        dd_tags = []
-        tags = {}
-        itags = {}
-        for tag in self._global_tags:
-            k, v = tag.split(":", 1)
-            tags[k] = v
-        for itag in instance['tags']:
-            k, v = itag.split(":", 1)
-            itags[k] = v
-        tags.update(itags)
-        tags['dst_addr'] = instance['addr']
-        for key, value in tags.items():
-            dd_tags.append('{}:{}'.format(key, value))
-        return dd_tags
-
     def _increment_with_tags(self, name, instance, value=1):
         self.increment(
             '{}.{}'.format(self._basename, name),
             value,
-            tags=self._instance_tags(instance)
+            tags=merged_tag_list(self._global_tags, instance['tags'], ['dst_addr:{}'.format(instance['addr'])])
         )
 
     def get_instance_by_addr(self, addr):
@@ -83,7 +65,9 @@ class FpingCheck(AgentCheck):
                     self.histogram(
                         '{}.rtt'.format(self._basename),
                         v,
-                        tags=self._instance_tags(instance)
+                        tags=merged_tag_list(self._global_tags,
+                                             instance['tags'],
+                                             ['dst_addr:{}'.format(instance['addr'])])
                     )
                 self._increment_with_tags('total_cnt', instance)
                 self._roll_up_instance_metadata()
@@ -133,3 +117,7 @@ class Fping(object):
         if len(result) == 0:
             raise Exception("Invalid addresses : {}".format(",".join(self._hosts)))
         return result
+
+
+def merged_tag_list(*args):
+    return sorted(["{}:{}".format(k, v) for k, v in {k: v for k, v in [i.split(":") for i in sum(args, [])]}.items()])

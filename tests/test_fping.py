@@ -1,6 +1,6 @@
 import os
 import unittest
-from fping import Fping, FpingCheck
+from fping import merged_tag_list, Fping, FpingCheck
 
 
 class TestFping(unittest.TestCase):
@@ -28,32 +28,6 @@ class TestFping(unittest.TestCase):
 
 
 class TestFpingCheck(unittest.TestCase):
-    def test_instance_tags(self):
-        check = FpingCheck('dummy', {'tags': ['key1:global', 'key2:conflict_global']}, {}, [])
-        self.assertEquals(
-                sorted(check._instance_tags({'addr': '127.0.0.1', 'tags': []})),
-                ['dst_addr:127.0.0.1', 'key1:global', 'key2:conflict_global']
-        )
-
-    def test_instance_tags_with_override(self):
-        check = FpingCheck('dummy', {'tags': ['key1:global', 'key2:conflict_global']}, {}, [])
-        self.assertEquals(
-                sorted(check._instance_tags({'addr': '127.0.0.1', 'tags': ['key2:override', 'key3:2']})),
-                ['dst_addr:127.0.0.1', 'key1:global', 'key2:override', 'key3:2']
-        )
-
-    def test_no_instance_tags(self):
-        check = FpingCheck('dummy', {'tags': ['key1:global', 'key2:conflict_global']}, {}, [])
-        with self.assertRaises(Exception) as err:
-            check._instance_tags({})
-        self.assertEquals(err.exception.args[0], 'All instances should have a \'tags\' parameter')
-
-    def test_invalid_instance_tags(self):
-        check = FpingCheck('dummy', {'tags': ['key1:global', 'key2:conflict_global']}, {}, [])
-        with self.assertRaises(KeyError) as err:
-            check._instance_tags({'tags': {}})
-        self.assertEquals(err.exception.args[0], 'addr')
-
     def test_run(self):
         check = FpingCheck('dummy', {'tags': ['key1:global', 'key2:conflict_global']}, {},
                            [{'addr': '127.0.0.1', 'tags': []}])
@@ -64,3 +38,17 @@ class TestFpingCheck(unittest.TestCase):
             FpingCheck('dummy', {'tags': ['key1:global', 'key2:conflict_global']}, {},
                        [{'addr': '127.0.0.1', 'tags': {}}, {'addr': '127.0.0.1', 'tags': []}])
             self.assertEquals(err.exception.args[0], 'Duplicate address found: 127.0.0.1')
+
+
+class TestFunction(unittest.TestCase):
+    def test_instance_tags(self):
+        self.assertEquals(
+                merged_tag_list(['key1:global', 'key2:conflict_global'], []),
+                ['key1:global', 'key2:conflict_global']
+        )
+
+    def test_instance_tags_with_override(self):
+        self.assertEquals(
+                merged_tag_list(['key1:global', 'key2:conflict_global'], ['key2:override', 'key3:2']),
+                ['key1:global', 'key2:override', 'key3:2']
+        )
